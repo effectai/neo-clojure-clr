@@ -1,11 +1,13 @@
 (assembly-load "Neo")
 (assembly-load "BouncyCastle.Crypto")
+(assembly-load "deps/nuget/clojure.data.json.0.2.1.0/lib/net35/clojure.data.json.dll")
 
 (ns neo-clj.core
+  (:require [clojure.data.json :as json])
   (:import
+   System.Net.WebRequest
    System.Threading.Monitor
    [System BitConverter Convert Array]
-   [System.IO BinaryReader MemoryStream ]
    [System.IO BinaryReader MemoryStream File StreamReader]
    System.Text.Encoding
    Neo.Implementations.Wallets.EntityFramework.UserWallet
@@ -254,6 +256,49 @@
       (-> tx
           (#(.MakeTransaction wallet % nil (Fixed8/Zero)))
           (ContractParametersContext.)))))
+
+(def request-map {:jsonrpc "2.0" :id 1})
+(def rpc-url "http://localhost:10332")
+(defn rpc-request
+  "Make a request to a NEO RPC server"
+  ([method] (rpc-request method []))
+  ([method params]
+   (let [request (WebRequest/Create rpc-url)
+         data (-> request-map
+                  (assoc-in [:method] method)
+                  (assoc-in [:params] params)
+                  json/write-str)
+         byte-data (.GetBytes Encoding/UTF8 data)]
+    (set! (.Method request) "POST")
+    (set! (.ContentType request) "application/x-www-form-urlencoded")
+    (set! (.ContentLength request) (.Length byte-data))
+    (let [stream (.GetRequestStream request)]
+      (.Write stream byte-data 0 (.Length byte-data))
+      (.Close stream)
+      (let [response (.GetResponse request)
+            stream-in (.GetResponseStream response)
+            reader (StreamReader. stream-in)
+            response-string (.ReadToEnd reader)]
+        (.Close reader)
+        (.Close stream-in)
+        (.Close response)
+        (get (json/read-str response-string) "result"))))))
+
+(defn sync
+  "Sync blockchain using RPC calls"
+  []
+  (let [bc Blockchain/Default
+        height (rpc-request "getblockcount")]
+    (loop [i (int (.Height bc))]
+      (when (< i height)
+        (println (str "load block " i " of " height))
+        (->> (rpc-request "getblock" [i]) load-block (.AddBlock bc))
+        (recur (inc i))))
+    height))
+
+(defn relay [raw-tx]
+  (rpc-request "sendrawtransaction" [raw-tx]))
+
 ;; Initialize the blockchain
 (create-blockchain!)
 (.AddBlock Blockchain/Default Blockchain/GenesisBlock)
