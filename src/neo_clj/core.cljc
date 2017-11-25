@@ -6,19 +6,25 @@
    System.Threading.Monitor
    [System BitConverter Convert Array]
    [System.IO BinaryReader MemoryStream ]
+   [System.IO BinaryReader MemoryStream File StreamReader]
    System.Text.Encoding
    Neo.Implementations.Wallets.EntityFramework.UserWallet
    Neo.Implementations.Blockchains.LevelDB.LevelDBBlockchain
    Neo.Cryptography.Crypto
    [Neo.Cryptography.ECC ECPoint ECCurve ECDsa]
-   [Neo.Core IVerifiable Witness ContractTransaction TransactionOutput TransactionAttribute Blockchain CoinReference Transaction Block]
+   [Neo.Core IVerifiable Witness ContractTransaction TransactionOutput
+    TransactionAttribute Blockchain CoinReference Transaction Block
+    InvocationTransaction]
+   [Neo.VM ScriptBuilder VMState]
    [Neo.Network LocalNode]
-   [Neo.SmartContract ContractParametersContext Contract]
+   [Neo.SmartContract ContractParametersContext Contract
+   ContractParameterType ApplicationEngine]
    [Neo.Wallets Wallet VerificationContract Coin]
    [Neo Helper Fixed8 UInt256 Settings]
    Org.BouncyCastle.Crypto.Digests.Sha256Digest
    Org.BouncyCastle.Crypto.EC.CustomNamedCurves
-   [Org.BouncyCastle.Crypto.Parameters ECDomainParameters ECPrivateKeyParameters]
+   [Org.BouncyCastle.Crypto.Parameters ECDomainParameters
+    ECPrivateKeyParameters]
    [Org.BouncyCastle.Asn1 DerSequenceGenerator DerInteger]
    [Org.BouncyCastle.Crypto.Signers HMacDsaKCalculator ECDsaSigner]))
 
@@ -185,12 +191,15 @@
   (set! (.Scripts (.Verifiable ctx)) (.GetScripts ctx))
   (->> ctx .Verifiable (. Neo.IO.Helper ToArray) Helper/ToHexString))
 
+(defn pub-key-to-address [pub-hash]
+  (-> pub-hash pub-hash-to-ecpoint
+      VerificationContract/CreateSignatureContract
+      (.Address)))
+
 (defn claim-initial-neo
   "Create a signed raw transaction that claims the NEO from genesis block"
   [address]
-  (let [to-address (-> address pub-hash-to-ecpoint
-                       VerificationContract/CreateSignatureContract
-                       (.Address))
+  (let [to-address (pub-key-to-address address)
         wallets (map-indexed
                  #(let [wal (create-wallet (str "wal" %1) "test")]
                     (.Import wal %2) wal) wifs)]
@@ -205,6 +214,46 @@
         {:tx (.Verifiable ctx)
          :raw-tx (context-to-raw-tx ctx)}))))
 
+
+(defn deploy-contract-tx
+  [wallet avm-file param-list return-type]
+  (let [script (File/ReadAllBytes avm-file)
+        sb (ScriptBuilder.)
+        type ^ContractParameterType (first (Helper/HexToBytes return-type))
+        need-storage true]
+    (doto sb
+      (.EmitPush "description")
+      (.EmitPush "jesse@effect.ai")
+      (.EmitPush "Effect")
+      (.EmitPush "0.1")
+      (.EmitPush "Name")
+      (.EmitPush need-storage)
+      (.EmitPush type)
+      (.EmitPush (Helper/HexToBytes param-list))
+      (.EmitPush script)
+      (.EmitSysCall "Neo.Contract.Create"))
+    (let [tx (InvocationTransaction.)]
+      (set! (.Script tx) (.ToArray sb))
+      {:tx tx
+       :ctx (-> tx
+                (#(.MakeTransaction wallet % nil (Fixed8/Zero)))
+               (ContractParametersContext.))
+       :script-hash (Neo.Core.Helper/ToScriptHash script)})))
+
+(defn invoke-contract-tx [wallet to-address script-hash]
+  (let [scripthash-to (.ToArray (Wallet/ToScriptHash to-address))
+        sb (ScriptBuilder.)]
+    (doto sb
+      (.EmitPush (make-array Byte 0))
+      (.EmitPush (make-array Byte 0))
+      (.EmitPush "Deploy")
+      (.EmitPush scripthash-to)
+      (.EmitAppCall (.ToArray script-hash) false))
+    (let [tx (InvocationTransaction.)]
+      (set! (.Script tx) (.ToArray sb))
+      (-> tx
+          (#(.MakeTransaction wallet % nil (Fixed8/Zero)))
+          (ContractParametersContext.)))))
 ;; Initialize the blockchain
 (create-blockchain!)
 (.AddBlock Blockchain/Default Blockchain/GenesisBlock)
