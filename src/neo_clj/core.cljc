@@ -102,6 +102,27 @@
     (.AddContract wallet contract)
     contract))
 
+(defn claim-gas-tx [wallet]
+  (let [unclaimed-coins (.GetUnclaimedCoins wallet)]
+    (when (empty? unclaimed-coins)
+      (throw (Exception. "No claimable gas")))
+    (let [claims (map #(.Reference %) unclaimed-coins)
+          asset-id (.Hash Blockchain/UtilityToken)
+          output (doto (TransactionOutput.)
+                   (#(set! (.AssetId %) asset-id))
+                   (#(set! (.Value %) (. Blockchain CalculateBonus claims false)))
+                   (#(set! (.ScriptHash %) (.GetChangeAddress wallet))))
+          tx (doto (ClaimTransaction.)
+               (#(set! (.Claims %) (into-array claims)))
+               (#(set! (.Attributes %) (make-array
+                                        TransactionAttribute 0)))
+               (#(set! (.Inputs %) (make-array
+                                    CoinReference 0)))
+               (#(set! (.Outputs %) (into-array [output]))))
+          ctx (ContractParametersContext. tx)]
+      ctx
+      )))
+
 (defn create-blockchain! []
   (Blockchain/RegisterBlockchain (LevelDBBlockchain. chain-path))
   (set! (.VerifyBlocks Blockchain/Default) false))
@@ -116,18 +137,29 @@
     (.Deserialize block reader)
     block))
 
-(defn make-transaction [wallet to-address amount]
-  (let [scripthash-to (Wallet/ToScriptHash to-address)
+(defn context-to-raw-tx
+  "Create a transaction string that is accepted by RPC 'sendrawtransaction'"
+  [ctx]
+  (set! (.Scripts (.Verifiable ctx)) (.GetScripts ctx))
+  (->> ctx .Verifiable (. Neo.IO.Helper ToArray) Helper/ToHexString))
+
+(defn make-transaction
+  ([wallet to-address amount] (make-transaction wallet to-address amount (:neo asset-ids)))
+  ([wallet to-address amount asset-id]
+  (let [asset-id (UInt256/Parse asset-id)
+        scripthash-to (Wallet/ToScriptHash to-address)
+        f8-amount (Fixed8/Parse amount)
         fee (Fixed8/Zero)
         output (doto (TransactionOutput.)
-                   (#(set! (.AssetId %) (UInt256/Parse (:neo asset-ids))))
-                   (#(set! (.Value %) (Fixed8/Parse amount)))
+                   (#(set! (.AssetId %) asset-id))
+                   (#(set! (.Value %) f8-amount))
                    (#(set! (.ScriptHash %) scripthash-to)))
         tx (doto (ContractTransaction.)
              (#(set! (.Outputs %) (into-array [output]))))
         txx (.MakeTransaction wallet tx nil fee)
         ctx (ContractParametersContext. txx)]
-    ctx))
+    {:tx tx
+     :ctx ctx})))
 
 (defn to-der
   "Convert an [r, s] signature to array in DER format"
@@ -193,18 +225,12 @@
          (.ScriptHashes ctx))]
     (every? identity result)))
 
-(defn context-to-raw-tx
-  "Create a transaction string that is accepted by RPC 'sendrawtransaction'"
-  [ctx]
-  (set! (.Scripts (.Verifiable ctx)) (.GetScripts ctx))
-  (->> ctx .Verifiable (. Neo.IO.Helper ToArray) Helper/ToHexString))
-
 (defn pub-key-to-address [pub-hash]
   (-> pub-hash pub-hash-to-ecpoint
       VerificationContract/CreateSignatureContract
       (.Address)))
 
-(defn claim-initial-neo
+(defn claim-initial-neo-tx
   "Create a signed raw transaction that claims the NEO from genesis block"
   [address]
   (let [to-address (pub-key-to-address address)
@@ -214,15 +240,16 @@
     (dorun (map add-multi-sig-contract wallets))      ; add the multi-sig tx
     (-> wallets first (.Rebuild))                     ; rebuild wallet balances
     (while (-> wallets first (.GetCoins) empty?) -1)  ; wait for rebuild...
-    (let [ctx (make-transaction
-               (first wallets) to-address "100000000")
-          signs (dorun (map #(sign-context % ctx) wallets))]
-      (if (not (.Completed ctx))
+    (let [tx (make-transaction
+              (first wallets) to-address "100000000")
+          signs (dorun (map #(sign-context % (:ctx tx)) wallets))]
+      (if (not (.Completed (:ctx tx)))
         (throw (Exception. "Failed to sign the transaction"))
-        {:tx (.Verifiable ctx)
-         :raw-tx (context-to-raw-tx ctx)}))))
+        {:tx (:tx tx)
+         :ctx (:ctx tx)}))))
 
-
+;; signature:
+;;  public static Object Main(byte[] originator, String Event, byte[] args0, byte[] args1, byte[] args2)
 (defn deploy-contract-tx
   [wallet avm-file param-list return-type]
   (let [script (File/ReadAllBytes avm-file)
