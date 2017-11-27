@@ -15,9 +15,9 @@
    Neo.Cryptography.Crypto
    [Neo.Cryptography.ECC ECPoint ECCurve ECDsa]
    [Neo.Core IVerifiable Witness ContractTransaction TransactionOutput
-    TransactionAttribute Blockchain CoinReference Transaction Block
-    InvocationTransaction]
-   [Neo.VM ScriptBuilder VMState]
+    ClaimTransaction TransactionAttribute Blockchain CoinReference
+    Transaction Block InvocationTransaction StorageKey StorageItem]
+   [Neo.VM ScriptBuilder VMState ExecutionEngine]
    [Neo.Network LocalNode]
    [Neo.SmartContract ContractParametersContext Contract
    ContractParameterType ApplicationEngine]
@@ -40,7 +40,7 @@
   {:neo "c56f33fc6ecfcd0c225c4ab356fee59390af8560be0e930faebe74a6daff7c9b"
    :gas "602c79718b16e442de58778e148d0b1084e3b2dffd5de6b7b16cee7969282de7"})
 
-;; The wallets corresponding to the standby validators
+;; The wallets corresponding to the standby validators from privnet
 (def wifs
   ["KxyjQ8eUa4FHt3Gvioyt1Wz29cTUrE4eTqX3yFSk1YFCsPL8uNsY"
    "KzfPUYDC9n2yf4fK5ro4C8KMcdeXtFuEnStycbZgX3GomiUsvX6W"
@@ -52,6 +52,12 @@
 
 (defn open-wallet [file passw]
   (UserWallet/Open file passw))
+
+(defn neo-balance [wallet]
+  (->> (:neo asset-ids) UInt256/Parse (.GetAvailable wallet)))
+
+(defn gas-balance [wallet]
+  (->> (:gas asset-ids) UInt256/Parse (.GetAvailable wallet)))
 
 (defn get-a-public-key
   "Generate new keypair for the wallet and return the public"
