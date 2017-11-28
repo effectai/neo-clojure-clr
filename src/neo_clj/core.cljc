@@ -251,44 +251,44 @@
 ;; signature:
 ;;  public static Object Main(byte[] originator, String Event, byte[] args0, byte[] args1, byte[] args2)
 (defn deploy-contract-tx
-  [wallet avm-file param-list return-type]
-  (let [script (File/ReadAllBytes avm-file)
-        sb (ScriptBuilder.)
-        type ^ContractParameterType (first (Helper/HexToBytes return-type))
-        need-storage true]
+  [wallet {:keys [file params return needs-storage version author email description]}]
+  (let [script (File/ReadAllBytes file)
+        sb (ScriptBuilder.)]
     (doto sb
-      (.EmitPush "description")
-      (.EmitPush "jesse@effect.ai")
-      (.EmitPush "Effect")
-      (.EmitPush "0.1")
-      (.EmitPush "Name")
-      (.EmitPush need-storage)
-      (.EmitPush type)
-      (.EmitPush (Helper/HexToBytes param-list))
+      (.EmitPush (str description))
+      (.EmitPush (str email))
+      (.EmitPush (str author))
+      (.EmitPush (str version))
+      (.EmitPush (str name))
+      (.EmitPush (boolean needs-storage))
+      (.EmitPush (System.Numerics.BigInteger/Parse return))
+      (.EmitPush (Helper/HexToBytes params))
       (.EmitPush script)
       (.EmitSysCall "Neo.Contract.Create"))
     (let [tx (InvocationTransaction.)]
+      (set! (.Version tx) 1)
       (set! (.Script tx) (.ToArray sb))
-      {:tx tx
-       :ctx (-> tx
-                (#(.MakeTransaction wallet % nil (Fixed8/Zero)))
-               (ContractParametersContext.))
-       :script-hash (Neo.Core.Helper/ToScriptHash script)})))
+      (let [engine (ApplicationEngine/Run (.Script tx) tx)]
+        (set! (.Gas tx) (InvocationTransaction/GetGas (.GasConsumed engine)))
+        (let [ctx (-> (.MakeTransaction wallet tx nil Fixed8/Zero)
+                      (ContractParametersContext.))]
+          {:tx tx
+           :script (.ToArray sb)
+           :ctx ctx
+           :script-hash (Neo.Core.Helper/ToScriptHash script)})))))
 
-(defn invoke-contract-tx [wallet to-address script-hash]
-  (let [scripthash-to (.ToArray (Wallet/ToScriptHash to-address))
-        sb (ScriptBuilder.)]
+(defn invoke-contract-tx [wallet script-hash]
+  (let [sb (ScriptBuilder.)]
     (doto sb
-      (.EmitPush (make-array Byte 0))
-      (.EmitPush (make-array Byte 0))
-      (.EmitPush "Deploy")
-      (.EmitPush scripthash-to)
+      (.EmitPush (make-array String 0))
       (.EmitAppCall (.ToArray script-hash) false))
     (let [tx (InvocationTransaction.)]
+      (set! (.Version tx) 1)
       (set! (.Script tx) (.ToArray sb))
-      (-> tx
-          (#(.MakeTransaction wallet % nil (Fixed8/Zero)))
-          (ContractParametersContext.)))))
+      (let [ctx (-> (.MakeTransaction wallet tx nil (Fixed8/Zero))
+                    (ContractParametersContext.))]
+        {:tx tx
+         :ctx ctx}))))
 
 (def request-map {:jsonrpc "2.0" :id 1})
 (def rpc-url "http://localhost:10332")
