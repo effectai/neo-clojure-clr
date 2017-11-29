@@ -84,8 +84,3 @@
 (defn -main []
   (println "Hello World")
   (blockchain/create!))
-
-;; Initialize the blockchain
-;; (blockchain/create!)
-
-;; (def w (wallet/open "test.db3" "test"))

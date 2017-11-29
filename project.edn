@@ -2,5 +2,5 @@
  :source-paths ["src", "tasks"]
  :dependencies [[:nuget clojure.data.json "0.2.1.0"]
                 [:nuget BouncyCastle "1.8.1"]]
- :assembly-paths ["ext/neo"]
+ :assembly-paths ["deps/ext/neo"]
  :references ["Neo" "Neo.VM"]}
