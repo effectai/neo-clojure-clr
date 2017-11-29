@@ -1,0 +1,41 @@
+* Clojure CLR - NEO
+
+Functions and tooling for NEO in Clojure, using the NEO core codebase.
+
+Aims to add extra functionality to `neo-cli` and make interaction with
+the blockchain more easy and fun.
+
+** Status
+   The code is in active development, pre-alpha. It should not be used
+   for anything critical. Please only use it in a private blockchain
+   environment for now.
+
+** Building
+   It's hightly recommended to use the Docker image when running the
+   project, as setting up Clojure CLR with NEO can be tricky.
+
+   #+BEGIN_SRC
+$ git clone https://github.com/effectai/neo-clojure-clr
+$ cd neo-clojure-clr
+$ docker build . -t neo-clj-clr
+$ docker run --rm -it neo-clj-clr
+REPL 0.0.0.0:11217
+user>
+   #+END_SRC
+
+   This leaves you with a Clojure REPL in user namespace.
+
+** Running
+   Currently it's just a set of functions that can be invoked from the
+   REPL.
+
+   Examples coming soon.
+
+** Features
+- Create and load wallets
+- Claim gas for wallet
+- Sync blockchain over RPC
+- Claim initial NEO from genesis block
+- Deploy smart contracts
+- Invoke smart contracts
+- Make transactions
