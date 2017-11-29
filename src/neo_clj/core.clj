@@ -1,7 +1,3 @@
-(assembly-load "Neo")
-(assembly-load "BouncyCastle.Crypto")
-(assembly-load "deps/nuget/clojure.data.json.0.2.1.0/lib/net35/clojure.data.json.dll")
-
 (ns neo-clj.core
   (:require
    [neo-clj.wallet :as wallet]
@@ -20,7 +16,8 @@
    [Neo.SmartContract ContractParametersContext Contract
    ContractParameterType ApplicationEngine]
    [Neo.Wallets Wallet VerificationContract Coin]
-   [Neo Helper Fixed8 UInt256 Settings]))
+   [Neo Helper Fixed8 UInt256 Settings])
+  (:gen-class :main true))
 
 (def settings Settings/Default)
 
@@ -84,7 +81,11 @@
         {:tx tx
          :ctx ctx}))))
 
-;; Initialize the blockchain
-(blockchain/create!)
+(defn -main []
+  (println "Hello World")
+  (blockchain/create!))
 
-(def w (wallet/open "test.db3" "test"))
+;; Initialize the blockchain
+;; (blockchain/create!)
+
+;; (def w (wallet/open "test.db3" "test"))

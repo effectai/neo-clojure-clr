@@ -1,4 +1,5 @@
 (ns neo-clj.blockchain
+  (:refer-clojure :exclude [sync])
   (:require
    [neo-clj.util :as util]
    [clojure.data.json :as json])
@@ -10,8 +11,7 @@
    [Neo Helper UInt256]
    [Neo.Core Blockchain Block]
    Neo.Implementations.Blockchains.LevelDB.LevelDBBlockchain
-   [Neo.Network LocalNode]
-   ))
+   [Neo.Network LocalNode]))
 
 (def chain-path "./Chain")
 
