@@ -3,7 +3,6 @@
    [clojure.pprint :refer [pprint]]
    [clojure.reflect :refer [reflect]])
   (:import
-   Microsoft.AspNetCore.Hosting.WebHostBuilder
    Neo.Network.RPC.RpcServer
    Neo.Network.LocalNode
    [Neo.IO.Json JArray JObject]))
