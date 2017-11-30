@@ -2,5 +2,16 @@
  :source-paths ["src", "tasks"]
  :dependencies [[:nuget clojure.data.json "0.2.1.0"]
                 [:nuget BouncyCastle "1.8.1"]]
- :assembly-paths ["deps/ext/neo"]
- :references ["Neo" "Neo.VM"]}
+ :assembly-paths ["deps/ext/neo" "build"]
+ :references ["Neo" "Neo.VM"
+              "Microsoft.AspNetCore.Hosting.Abstractions.dll"
+              "Microsoft.AspNetCore.Hosting.dll"
+              "Microsoft.AspNetCore.Hosting.Server.Abstractions.dll"
+              "Microsoft.AspNetCore.Http.Abstractions.dll"
+              "Microsoft.AspNetCore.Http.dll"
+              "Microsoft.AspNetCore.Http.Extensions.dll"
+              "Microsoft.AspNetCore.Http.Features.dll"
+              "Microsoft.AspNetCore.Server.Kestrel.dll"
+              "Microsoft.AspNetCore.Server.Kestrel.Https.dll"
+              "Microsoft.AspNetCore.WebSockets.dll"
+              "Microsoft.AspNetCore.WebUtilities.dll"]}

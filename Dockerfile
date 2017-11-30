@@ -28,21 +28,31 @@ ENV NEO_TARGET netstandard1.6
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       libleveldb1 \
+       libleveldb-dev \
        sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install 1.9 version of libuv
+WORKDIR /usr/local/build
+RUN curl -O http://ftp.cn.debian.org/debian/pool/main/libu/libuv1/libuv1_1.9.0-1~bpo8+1_amd64.deb \
+    && curl -O http://ftp.cn.debian.org/debian/pool/main/libu/libuv1/libuv1-dev_1.9.0-1~bpo8+1_amd64.deb \
+    && dpkg -i libuv1_1.9.0-1~bpo8+1_amd64.deb \
+    && dpkg -i libuv1-dev_1.9.0-1~bpo8+1_amd64.deb \
+    && rm *.deb
+
+# Install nostrand
 COPY --from=0 /usr/local/build/nos /opt/nos
 WORKDIR /opt/nos
 RUN xbuild && ln -s `pwd`/bin/Release/nos /usr/local/bin/
 
 WORKDIR /usr/local/app
-COPY . .
 
 COPY --from=0 /usr/local/build/neo/neo/bin/Release/$NEO_TARGET/publish deps/ext/neo
 
 RUN mkdir -p deps/nuget && cd deps/nuget \
     && nuget install BouncyCastle && nuget install clojure.data.json
+
+COPY . .
 
 # we cant change the load path of protocol.json in NEO, so copy over for now
 RUN cp protocol.json /opt/nos/bin/Release
