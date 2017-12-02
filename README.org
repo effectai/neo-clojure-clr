@@ -1,8 +1,7 @@
 * Clojure CLR - NEO
-
 Functions and tooling for NEO in Clojure, using the NEO core codebase.
 
-Aims to add extra functionality to `neo-cli` and make interaction with
+Aims to add extra functionality to =neo-cli= and make interaction with
 the blockchain more easy and fun.
 
 ** Status
@@ -10,9 +9,24 @@ the blockchain more easy and fun.
    for anything critical. Please only use it in a private blockchain
    environment for now.
 
-** Building
+** Features
+   The following functionality is included:
+
+- [[#create-a-wallet][Create and load wallets]]
+- Claim gas for wallet
+- [[#load-and-sync-blockchain][Sync blockchain over RPC]]
+- [[#claim-initial-neo][Claim initial NEO from genesis block]]
+- Deploy smart contracts
+- Invoke smart contracts
+- Make transactions
+- Run an RPC server with extended commands
+- Keep track of assets
+** Getting Started
+*** Installation
    It's hightly recommended to use the Docker image when running the
-   project, as setting up Clojure CLR with NEO can be tricky.
+   project, as setting up Clojure CLR with NEO can be tricky. Make
+   sure you have Docker 17.05 or above installed, then run the
+   following commands:
 
    #+BEGIN_SRC
 $ git clone https://github.com/effectai/neo-clojure-clr
@@ -24,18 +38,67 @@ user>
    #+END_SRC
 
    This leaves you with a Clojure REPL in user namespace.
+*** Setup
+    The application assumes you have [[https://github.com/CityOfZion/neo-privatenet-docker][neo-privatenet-docker]] running
+    with an RPC server enabled on =http://localhost:10332=.
 
-** Running
-   Currently it's just a set of functions that can be invoked from the
-   REPL.
+    To interact with the blockchain you'll need to load some
+    namespaces. The examples below will assume the following setup:
 
-   Examples coming soon.
+    #+BEGIN_SRC clojure
+user> (require '[neo-clj.core :as neo-clj]) 
+user> (require '[neo-clj.blockchain :as bc]) 
+user> (require '[neo-clj.rpc :as rpc])
+user> (require '[neo-clj.wallet :as wallet])
+    #+END_SRC
 
-** Features
-- Create and load wallets
-- Claim gas for wallet
-- Sync blockchain over RPC
-- Claim initial NEO from genesis block
-- Deploy smart contracts
-- Invoke smart contracts
-- Make transactions
+** Examples
+**** Load and sync blockchain
+#+BEGIN_SRC clojure
+user> (def b (bc/create))
+#'user/b
+user> (bc/sync b)
+load block 0 of 1534
+...
+...
+load block 1534 of 1534
+nil
+#+END_SRC
+
+**** Create a wallet
+#+BEGIN_SRC clojure
+user> (def w (wallet/create "wallet.db3" "pass"))
+#'user/w
+#+END_SRC
+
+**** Claim initial NEO
+#+BEGIN_SRC clojure
+user> (def to (wallet/get-a-public-key w))
+#'user/to
+user> (def claim-tx (neo-clj/claim-initial-neo-tx to))
+#'user/claim-tx
+user> (bc/relay (:ctx claim-tx))
+true
+user> (bc/sync b)
+... 
+...
+user> (wallet/neo-balance w)
+100000000
+#+END_SRC
+
+**** Start an RPC server
+#+BEGIN_SRC clojure
+user> (def server (rpc/create-server))
+#'user/server
+user> (rpc/start-server server)
+Starting extended RPC server on port 10332
+#+END_SRC
+
+** RPC reference
+The RPC server exposes the same [[https://github.com/neo-project/neo/wiki/API-Reference][methods]] as in the neo core server. In
+addition the following endpoints are available in =neo-clj=:
+
+| command   | parameters | description                |
+|-----------+------------+----------------------------|
+| getassets |            | list all registered assets |
+|           |            |                            |
