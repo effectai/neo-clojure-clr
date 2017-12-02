@@ -100,7 +100,7 @@
 
 (defn sync
   "Sync blockchain using RPC calls"
-  ([bc] (sync true))
+  ([bc] (sync bc true))
   ([bc verbose]
    (let [height (rpc-request "getblockcount")]
      (loop [i (int (.Height bc))]
@@ -116,8 +116,14 @@
    (gen-delegate
     System.Threading.ThreadStart []
     (while true
-      (sync bc false)
-      (Thread/Sleep (* Blockchain/SecondsPerBlock 1000))))))
+      (Thread/Sleep (* Blockchain/SecondsPerBlock 1000))
+      (sync bc false)))))
+
+(defn- persist-state [path]
+  (spit (str path "/state.edn") @state))
+
+(defn- restore-state! [path]
+  (reset! state (read-string (slurp (str path "/state.edn")))))
 
 (defn create
   ([] (create chain-path))
@@ -126,8 +132,11 @@
          thread (sync-thread bc)]
      (set! (.VerifyBlocks bc) false)
      (if (zero? (.Height bc))
-       (update-state (get-block 0)))
-     (on-block-persist #(update-state %2))
+       (update-state (get-block bc 0))
+       (persist-state path))
+     (restore-state! path)
+     (on-block-persist #((update-state %2)
+                         (persist-state path)))
      (Blockchain/RegisterBlockchain bc)
      (.Start thread)
      bc)))
