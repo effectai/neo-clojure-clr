@@ -15,7 +15,7 @@ the blockchain more easy and fun.
 - [[#create-a-wallet][Create and load wallets]]
 - Claim gas for wallet
 - [[#load-and-sync-blockchain][Sync blockchain over RPC]]
-- Claim initial NEO from genesis block
+- [[#claim-initial-neo][Claim initial NEO from genesis block]]
 - Deploy smart contracts
 - Invoke smart contracts
 - Make transactions
@@ -39,13 +39,17 @@ user>
 
    This leaves you with a Clojure REPL in user namespace.
 *** Setup
-    To interact with the blockchain you'll need to load some
-    namespaces. The examples will assume the following setup:
+    The application assumes you have [[https://github.com/CityOfZion/neo-privatenet-docker][neo-privatenet-docker]] running
+    with an RPC server enabled on `http://localhost:10332`.
 
-    #+BEGIN_SRC 
-$ (require '[neo-clj.blockchain :as bc]) 
-$ (require '[neo-clj.rpc :as rpc])
-$ (require '[neo-clj.wallet :as wallet])
+    To interact with the blockchain you'll need to load some
+    namespaces. The examples below will assume the following setup:
+
+    #+BEGIN_SRC clojure
+user> (require '[neo-clj.core :as neo-clj]) 
+user> (require '[neo-clj.blockchain :as bc]) 
+user> (require '[neo-clj.rpc :as rpc])
+user> (require '[neo-clj.wallet :as wallet])
     #+END_SRC
 
 ** Examples
@@ -67,3 +71,17 @@ user> (def w (wallet/create "wallet.db3" "pass"))
 #'user/w
 #+END_SRC
 
+**** Claim initial NEO
+#+BEGIN_SRC clojure
+user> (def to (wallet/get-a-public-key w))
+#'user/to
+user> (def claim-tx (neo-clj/claim-initial-neo-tx to))
+#'user/claim-tx
+user> (bc/relay (:ctx claim-tx))
+true
+user> (bc/sync b)
+... 
+...
+user> (wallet/neo-balance w)
+100000000
+#+END_SRC

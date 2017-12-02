@@ -5,6 +5,7 @@
    [neo-clj.blockchain :as blockchain])
   (:import
    [System BitConverter Convert Array]
+   System.Threading.Thread
    System.Text.Encoding
    System.IO.File
    Neo.Implementations.Wallets.EntityFramework.UserWallet
@@ -30,9 +31,9 @@
         wallets (map-indexed
                  #(let [wal (wallet/create (str "wal" %1) "test")]
                     (.Import wal %2) wal) wallet/wifs)]
-    (dorun (map wallet/add-multi-sig-contract wallets keys))      ; add the multi-sig tx
-    (-> wallets first (.Rebuild))                                 ; rebuild wallet balances
-    (while (-> wallets first (.GetCoins) empty?) -1)              ; wait for rebuild...
+    (dorun (map #(wallet/add-multi-sig-contract % public-keys) wallets)) ; add the multi-sig tx
+    (-> wallets first .Rebuild)                                          ; rebuild wallet balances
+    (while (empty? (-> wallets first .GetCoins)) (Thread/Sleep 1000))    ; wait for rebuild...
     (let [tx (wallet/make-transaction
               (first wallets) to-address "100000000")
           signs (dorun (map #(wallet/sign-context % (:ctx tx)) wallets))]

@@ -47,7 +47,6 @@
 (defn- update-state [{transactions :tx :as block}]
   (let [register-txs (filter #(= (:type %) (:register tx-type)) transactions)
         assets (map :asset register-txs)]
-    (println "register txs " register-txs)
     (swap! state (fn [s] (update-in s [:assets] #(concat % assets))))))
 
 (defn get-block
@@ -116,8 +115,7 @@
       (when (< i height)
         (println (str "load block " i " of " height))
         (->> (rpc-request "getblock" [i]) load-block :object (.AddBlock bc))
-        (recur (inc i))))
-    height))
+        (recur (inc i))))))
 
 (defn sync-loop
   "Keep blockchain synced in a background thread"
@@ -127,4 +125,3 @@
                        System.Threading.ThreadStart []
                        )))]
     (throw (Exception. "Not implemented"))))
-
