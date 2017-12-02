@@ -1,8 +1,7 @@
 * Clojure CLR - NEO
-
 Functions and tooling for NEO in Clojure, using the NEO core codebase.
 
-Aims to add extra functionality to `neo-cli` and make interaction with
+Aims to add extra functionality to =neo-cli= and make interaction with
 the blockchain more easy and fun.
 
 ** Status
@@ -10,9 +9,24 @@ the blockchain more easy and fun.
    for anything critical. Please only use it in a private blockchain
    environment for now.
 
-** Building
+** Features
+   The following functionality is included:
+
+- [[#create-a-wallet][Create and load wallets]]
+- Claim gas for wallet
+- [[#load-and-sync-blockchain][Sync blockchain over RPC]]
+- Claim initial NEO from genesis block
+- Deploy smart contracts
+- Invoke smart contracts
+- Make transactions
+- Run an RPC server with extended commands
+- Keep track of assets
+** Getting Started
+*** Installation
    It's hightly recommended to use the Docker image when running the
-   project, as setting up Clojure CLR with NEO can be tricky.
+   project, as setting up Clojure CLR with NEO can be tricky. Make
+   sure you have Docker 17.05 or above installed, then run the
+   following commands:
 
    #+BEGIN_SRC
 $ git clone https://github.com/effectai/neo-clojure-clr
@@ -24,18 +38,32 @@ user>
    #+END_SRC
 
    This leaves you with a Clojure REPL in user namespace.
+*** Setup
+    To interact with the blockchain you'll need to load some
+    namespaces. The examples will assume the following setup:
 
-** Running
-   Currently it's just a set of functions that can be invoked from the
-   REPL.
+    #+BEGIN_SRC 
+$ (require '[neo-clj.blockchain :as bc]) 
+$ (require '[neo-clj.rpc :as rpc])
+$ (require '[neo-clj.wallet :as wallet])
+    #+END_SRC
 
-   Examples coming soon.
+** Examples
+**** Load and sync blockchain
+#+BEGIN_SRC clojure
+user> (def b (bc/create))
+#'user/b
+user> (bc/sync b)
+load block 0 of 1534
+...
+...
+load block 1534 of 1534
+nil
+#+END_SRC
 
-** Features
-- Create and load wallets
-- Claim gas for wallet
-- Sync blockchain over RPC
-- Claim initial NEO from genesis block
-- Deploy smart contracts
-- Invoke smart contracts
-- Make transactions
+**** Create a wallet
+#+BEGIN_SRC clojure
+user> (def w (wallet/create "wallet.db3" "pass"))
+#'user/w
+#+END_SRC
+
