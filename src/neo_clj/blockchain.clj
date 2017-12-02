@@ -7,6 +7,7 @@
   (:import
    System.Text.Encoding
    System.Net.WebRequest
+   System.Threading.Thread
    System.Reflection.BindingFlags
    [System.IO BinaryReader MemoryStream File StreamReader]
    [Neo Helper UInt256]
@@ -55,16 +56,6 @@
   ([n] (get-block Blockchain/Default n))
   ([bc n] (obj->clj (.GetBlock bc n))))
 
-(defn create
-  ([] (create chain-path))
-  ([path]
-   (Blockchain/RegisterBlockchain (LevelDBBlockchain. path))
-   (set! (.VerifyBlocks Blockchain/Default) false)
-   (if (zero? (.Height Blockchain/Default))
-     (update-state (get-block 0)))
-   (on-block-persist #(update-state %2))
-   Blockchain/Default))
-
 (defn load-block
   "Deserialize a Block from a serialized hex string (as returned by
   the RPC API)"
@@ -109,19 +100,34 @@
 
 (defn sync
   "Sync blockchain using RPC calls"
-  [bc]
-  (let [height (rpc-request "getblockcount")]
-    (loop [i (int (.Height bc))]
-      (when (< i height)
-        (println (str "load block " i " of " height))
-        (->> (rpc-request "getblock" [i]) load-block :object (.AddBlock bc))
-        (recur (inc i))))))
+  ([bc] (sync true))
+  ([bc verbose]
+   (let [height (rpc-request "getblockcount")]
+     (loop [i (int (.Height bc))]
+       (when (< i height)
+         (when verbose (println (str "load block " i " of " height)))
+         (->> (rpc-request "getblock" [i]) load-block :object (.AddBlock bc))
+         (recur (inc i)))))))
 
-(defn sync-loop
+(defn sync-thread
   "Keep blockchain synced in a background thread"
-  []
-  (let [thread (doto (System.Threading.Thread.
-                      (gen-delegate
-                       System.Threading.ThreadStart []
-                       )))]
-    (throw (Exception. "Not implemented"))))
+  [bc]
+  (System.Threading.Thread.
+   (gen-delegate
+    System.Threading.ThreadStart []
+    (while true
+      (sync bc false)
+      (Thread/Sleep (* Blockchain/SecondsPerBlock 1000))))))
+
+(defn create
+  ([] (create chain-path))
+  ([path]
+   (let [bc (LevelDBBlockchain. path)
+         thread (sync-thread bc)]
+     (set! (.VerifyBlocks bc) false)
+     (if (zero? (.Height bc))
+       (update-state (get-block 0)))
+     (on-block-persist #(update-state %2))
+     (Blockchain/RegisterBlockchain bc)
+     (.Start thread)
+     bc)))
