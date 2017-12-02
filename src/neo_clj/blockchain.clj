@@ -5,9 +5,8 @@
    [neo-clj.util :as util]
    [clojure.data.json :as json])
   (:import
-   System.Net.WebRequest
    System.Text.Encoding
-   System.Threading.Monitor
+   System.Net.WebRequest
    System.Reflection.BindingFlags
    [System.IO BinaryReader MemoryStream File StreamReader]
    [Neo Helper UInt256]
