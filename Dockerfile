@@ -57,4 +57,6 @@ COPY . .
 # we cant change the load path of protocol.json in NEO, so copy over for now
 RUN cp protocol.json /opt/nos/bin/Release
 
-CMD ["nos", "tasks/repl"]
+ENTRYPOINT ["nos"]
+
+CMD ["tasks/repl"]
