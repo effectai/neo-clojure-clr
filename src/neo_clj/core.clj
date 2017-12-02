@@ -83,4 +83,4 @@
 
 (defn -main []
   (println "Hello World")
-  (blockchain/create!))
+  (blockchain/create))

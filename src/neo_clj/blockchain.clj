@@ -1,20 +1,21 @@
 (ns neo-clj.blockchain
   (:refer-clojure :exclude [sync])
   (:require
+   [clojure.walk :refer [keywordize-keys]]
    [neo-clj.util :as util]
    [clojure.data.json :as json])
   (:import
    System.Net.WebRequest
    System.Text.Encoding
    System.Threading.Monitor
+   System.Reflection.BindingFlags
    [System.IO BinaryReader MemoryStream File StreamReader]
    [Neo Helper UInt256]
    [Neo.Core Blockchain Block]
-   Neo.Implementations.Blockchains.LevelDB.LevelDBBlockchain
+   [Neo.Implementations.Blockchains.LevelDB DB LevelDBBlockchain]
    [Neo.Network LocalNode]))
 
 (def chain-path "./Chain")
-
 
 ;; List of RPC servers used for syncing
 (def rpc-list ["http://localhost:10332"])
@@ -25,10 +26,46 @@
   {:neo (UInt256/Parse "c56f33fc6ecfcd0c225c4ab356fee59390af8560be0e930faebe74a6daff7c9b")
    :gas (UInt256/Parse "602c79718b16e442de58778e148d0b1084e3b2dffd5de6b7b16cee7969282de7")})
 
-(defn create! []
-  (Blockchain/RegisterBlockchain (LevelDBBlockchain. chain-path))
-  (set! (.VerifyBlocks Blockchain/Default) false)
-  true)
+(def tx-type {:miner "MinerTransaction"
+              :register "RegisterTransaction"
+              :issue "IssueTransaction"
+              :invocation "InvocationTransaction"})
+
+(def state (atom {:assets [] :contracts []}))
+
+(defn- obj->clj
+  "Transform an object that support 'ToJson' method into a map"
+  [object]
+  (-> (json/read-str (-> object .ToJson str))
+      (assoc-in [:object] object)
+      keywordize-keys))
+
+(defn on-block-persist [callback-fn]
+  (Blockchain/add_PersistCompleted
+   (gen-delegate |System.EventHandler`1[[Neo.Core.Block]]|
+                 [sender block] (callback-fn sender (obj->clj block)))))
+
+(defn- update-state [{transactions :tx :as block}]
+  (let [register-txs (filter #(= (:type %) (:register tx-type)) transactions)
+        assets (map :asset register-txs)]
+    (println "register txs " register-txs)
+    (swap! state (fn [s] (update-in s [:assets] #(concat % assets))))))
+
+(defn get-block
+  "Get a block and transform data into a clojure map. Original block
+  is stored under the :object key"
+  ([n] (get-block Blockchain/Default n))
+  ([bc n] (obj->clj (.GetBlock bc n))))
+
+(defn create
+  ([] (create chain-path))
+  ([path]
+   (Blockchain/RegisterBlockchain (LevelDBBlockchain. path))
+   (set! (.VerifyBlocks Blockchain/Default) false)
+   (if (zero? (.Height Blockchain/Default))
+     (update-state (get-block 0)))
+   (on-block-persist #(update-state %2))
+   Blockchain/Default))
 
 (defn load-block
   "Deserialize a Block from a serialized hex string (as returned by
@@ -38,7 +75,7 @@
         reader (BinaryReader. (MemoryStream. data))
         block (Block.)]
     (.Deserialize block reader)
-    block))
+    (obj->clj block)))
 
 (defn context-to-raw-tx
   "Create a transaction string that is accepted by RPC 'sendrawtransaction'"
@@ -74,13 +111,12 @@
 
 (defn sync
   "Sync blockchain using RPC calls"
-  []
-  (let [bc Blockchain/Default
-        height (rpc-request "getblockcount")]
+  [bc]
+  (let [height (rpc-request "getblockcount")]
     (loop [i (int (.Height bc))]
       (when (< i height)
         (println (str "load block " i " of " height))
-        (->> (rpc-request "getblock" [i]) load-block (.AddBlock bc))
+        (->> (rpc-request "getblock" [i]) load-block :object (.AddBlock bc))
         (recur (inc i))))
     height))
 
