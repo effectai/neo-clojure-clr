@@ -40,7 +40,7 @@ user>
    This leaves you with a Clojure REPL in user namespace.
 *** Setup
     The application assumes you have [[https://github.com/CityOfZion/neo-privatenet-docker][neo-privatenet-docker]] running
-    with an RPC server enabled on `http://localhost:10332`.
+    with an RPC server enabled on =http://localhost:10332=.
 
     To interact with the blockchain you'll need to load some
     namespaces. The examples below will assume the following setup:
@@ -85,3 +85,20 @@ user> (bc/sync b)
 user> (wallet/neo-balance w)
 100000000
 #+END_SRC
+
+**** Start an RPC server
+#+BEGIN_SRC clojure
+user> (def server (rpc/create-server))
+#'user/server
+user> (rpc/start-server server)
+Starting extended RPC server on port 10332
+#+END_SRC
+
+** RPC reference
+The RPC server exposes the same [[https://github.com/neo-project/neo/wiki/API-Reference][methods]] as in the neo core server. In
+addition the following endpoints are available in =neo-clj=:
+
+| command   | parameters | description                |
+|-----------+------------+----------------------------|
+| getassets |            | list all registered assets |
+|           |            |                            |
