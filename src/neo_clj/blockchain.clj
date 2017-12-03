@@ -46,8 +46,11 @@
                  [sender block] (callback-fn sender (obj->clj block)))))
 
 (defn- update-state [{transactions :tx :as block}]
-  (let [register-txs (filter #(= (:type %) (:register tx-type)) transactions)
-        assets (map :asset register-txs)]
+  (let [assets
+        (->> transactions
+             (filter #(= (:type %) (:register tx-type)))     ; all register txs
+             (map #(assoc-in % [:asset :txid] (:txid %)))    ; enhance :asset with the :txid
+             (map :asset register-txs))]                     ; get list of assets
     (swap! state (fn [s] (update-in s [:assets] #(concat % assets))))))
 
 (defn get-block
@@ -131,7 +134,7 @@
    (let [bc (LevelDBBlockchain. path)
          thread (sync-thread bc)]
      (set! (.VerifyBlocks bc) false)
-     (if (zero? (.Height bc))
+     (when (zero? (.Height bc))
        (update-state (get-block bc 0))
        (persist-state path))
      (restore-state! path)
