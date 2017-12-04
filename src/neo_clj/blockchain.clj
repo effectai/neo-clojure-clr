@@ -50,7 +50,7 @@
         (->> transactions
              (filter #(= (:type %) (:register tx-type)))     ; all register txs
              (map #(assoc-in % [:asset :txid] (:txid %)))    ; enhance :asset with the :txid
-             (map :asset register-txs))]                     ; get list of assets
+             (map :asset))]                                  ; get list of assets
     (swap! state (fn [s] (update-in s [:assets] #(concat % assets))))))
 
 (defn get-block

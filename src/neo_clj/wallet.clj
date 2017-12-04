@@ -3,6 +3,7 @@
    [neo-clj.blockchain :as blockchain]
    [neo-clj.crypto :as crypto])
   (:import
+   System.IO.File
    [Neo Fixed8 Helper]
    Neo.Implementations.Wallets.EntityFramework.UserWallet
    [Neo.Core TransactionOutput ContractTransaction Blockchain
@@ -23,6 +24,11 @@
 
 (defn open [path passw]
   (UserWallet/Open path passw))
+
+(defn open-or-create [path passw]
+  (if (File/Exists path)
+    (open path passw)
+    (create path passw)))
 
 (defn neo-balance [wallet]
   (->> (:neo blockchain/asset-ids) (.GetAvailable wallet)))
@@ -113,4 +119,14 @@
                (#(set! (.Outputs %) (into-array [output]))))
           ctx (ContractParametersContext. tx)]
       ctx)))
+
+(defn get-keys [w]
+  (letfn [(addr [k] {:public-key (-> k .PublicKey str)
+                     :private-key (-> k .PrivateKey Helper/ToHexString)
+                     :wif (.Export k)
+                     :script-hash (-> k .PublicKey str
+                                      pub-key-to-address
+                                      Wallet/ToScriptHash str)
+                     :address (-> k .PublicKey str pub-key-to-address)})]
+    (->> w .GetKeys vec (map addr))))
 

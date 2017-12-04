@@ -1,6 +1,7 @@
 (ns neo-clj.rpc
   (:require
    [neo-clj.blockchain :as blockchain]
+   [neo-clj.wallet :as wallet]
    [clojure.data.json :as json]
    [clojure.pprint :refer [pprint]]
    [clojure.reflect :refer [reflect]])
@@ -12,7 +13,9 @@
 
 (def default-settings {:port 10332 :protocol "http"})
 
-(def method-needs-blockchain? {"getblock" true})
+(def method-needs-blockchain? {"getblock" true "getassets" true})
+
+(def state (atom {:wallet nil}))
 
 (defn- process-message [settings method params]
   (if (and (not Blockchain/Default) (method-needs-blockchain? method))
@@ -20,6 +23,10 @@
     (case method
       "getversion" {:port (:port settings) :useragent "NEO-CLJ:0.0.0"}
       "getassets" (:assets @blockchain/state)
+      "getkeys" (wallet/get-keys (:wallet @state))
+      "makekeys" (let [num (if (empty? params) 1 (first params))]
+                   (dorun (dotimes [_ num] (.CreateKey (:wallet @state))))
+                   "success")
       nil)))
 
 (defn create-server
@@ -31,7 +38,8 @@
          server
          (proxy [RpcServer] [nil]
            (Process [method params]
-             (let [response (process-message settings method params)]
+             (let [params (map #(.get_Value %) params)
+                   response (process-message settings method params)]
                (if (nil? response)
                  (proxy-super Process method params)
                  (JObject/Parse (json/write-str response))))))]
@@ -41,4 +49,8 @@
 (defn start-server
   [{:keys [server protocol port]}]
   (println "Starting extended RPC server on port" port)
+
+  (let [w (wallet/open-or-create "wallet.db3" "duplo")]
+    (swap! state #(assoc-in % [:wallet] w)))
+
   (.Start server (into-array [(str protocol "://*:" port)])))
