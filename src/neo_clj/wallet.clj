@@ -3,11 +3,11 @@
    [neo-clj.blockchain :as blockchain]
    [neo-clj.crypto :as crypto])
   (:import
-   System.IO.File
+   [System.IO File Directory]
    [Neo Fixed8 Helper]
    Neo.Implementations.Wallets.EntityFramework.UserWallet
    [Neo.Core TransactionOutput ContractTransaction Blockchain
-    ClaimTransaction TransactionAttribute CoinReference]
+    ClaimTransaction TransactionAttribute CoinReference CoinState]
    [Neo.Cryptography.ECC ECCurve ECPoint]
    [Neo.Wallets Wallet VerificationContract Coin]
    [Neo.SmartContract ContractParametersContext Contract]))
@@ -25,16 +25,33 @@
 (defn open [path passw]
   (UserWallet/Open path passw))
 
-(defn open-or-create [path passw]
-  (if (File/Exists path)
-    (open path passw)
-    (create path passw)))
+(defn open-or-create
+  "Open a wallet relative to the current directory, or create it if it
+  doesn't exist"
+  [path passw]
+  (let [path (str (Directory/GetCurrentDirectory) "/" path)]
+    (if (File/Exists path)
+      (open path passw)
+      (create path passw))))
 
 (defn neo-balance [wallet]
   (->> (:neo blockchain/asset-ids) (.GetAvailable wallet)))
 
 (defn gas-balance [wallet]
   (->> (:gas blockchain/asset-ids) (.GetAvailable wallet)))
+
+(defn balance-for-key [wallet script-hash]
+  (let [coins (->> wallet .GetCoins vec
+                   (filter #(= (.. % Output ScriptHash) script-hash))
+                   (filter #(.HasFlag (.State %) CoinState/Confirmed))
+                   (filter #(not (.HasFlag (.State %) CoinState/Spent)))
+                   (filter #(not (.HasFlag (.State %) CoinState/Frozen)))
+                   (filter #(not (.HasFlag (.State %) CoinState/Locked)))
+                   (filter #(not (.HasFlag (.State %) CoinState/WatchOnly))))
+        neo-coins (filter #(= (.. % Output AssetId) (:neo blockchain/asset-ids)) coins)
+        gas-coins (filter #(= (.. % Output AssetId) (:gas blockchain/asset-ids)) coins)]
+    {:neo (reduce #(+ %1 (int (str (.. %2 Output Value)))) 0 neo-coins)
+     :gas (reduce #(+ %1 (int (str (.. %2 Output Value)))) 0 gas-coins)}))
 
 (defn get-a-public-key
   "Generate new keypair for the wallet and return the public"
@@ -120,13 +137,17 @@
           ctx (ContractParametersContext. tx)]
       ctx)))
 
-(defn get-keys [w]
-  (letfn [(addr [k] {:public-key (-> k .PublicKey str)
-                     :private-key (-> k .PrivateKey Helper/ToHexString)
-                     :wif (.Export k)
-                     :script-hash (-> k .PublicKey str
-                                      pub-key-to-address
-                                      Wallet/ToScriptHash str)
-                     :address (-> k .PublicKey str pub-key-to-address)})]
-    (->> w .GetKeys vec (map addr))))
+(defn get-keys
+  "Get clojure map of info about all the keys in wallet"
+  [wallet]
+  (letfn [(addr [k]
+            (let [address (-> k .PublicKey str pub-key-to-address)
+                  script-hash (Wallet/ToScriptHash address)]
+              {:public-key (-> k .PublicKey str)
+               :private-key (-> k .PrivateKey Helper/ToHexString)
+               :wif (.Export k)
+               :balance (balance-for-key wallet script-hash)
+               :script-hash (str script-hash)
+               :address address}))]
+    (->> wallet .GetKeys vec (map addr))))
 

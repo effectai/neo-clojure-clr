@@ -88,10 +88,10 @@ user> (wallet/neo-balance w)
 
 **** Start an RPC server
 #+BEGIN_SRC clojure
-user> (def server (rpc/create-server))
+user> (def server (rpc/create-server {:port 10336}))
 #'user/server
 user> (rpc/start-server server)
-Starting extended RPC server on port 10332
+Starting extended RPC server on port 10336
 #+END_SRC
 
 ** RPC reference

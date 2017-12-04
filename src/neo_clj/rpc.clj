@@ -38,8 +38,8 @@
          server
          (proxy [RpcServer] [nil]
            (Process [method params]
-             (let [params (map #(.get_Value %) params)
-                   response (process-message settings method params)]
+             (let [clj-params (map #(.get_Value %) params)
+                   response (process-message settings method clj-params)]
                (if (nil? response)
                  (proxy-super Process method params)
                  (JObject/Parse (json/write-str response))))))]
