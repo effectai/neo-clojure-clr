@@ -3,15 +3,22 @@
   (:require
    [clojure.walk :refer [keywordize-keys]]
    [neo-clj.util :as util]
+   [neo-clj.implementations :refer [get-private-field]]
    [clojure.data.json :as json])
   (:import
    System.Text.Encoding
    System.Net.WebRequest
    System.Threading.Thread
-   System.Reflection.BindingFlags
+   Neo.VM.VMState
    [System.IO BinaryReader MemoryStream File StreamReader]
-   [Neo Helper UInt256]
-   [Neo.Core Blockchain Block]
+   [Neo Helper UInt256 UInt160 Fixed8]
+   [Neo.Cryptography.ECC ECCurve ECPoint]
+   System.Reflection.BindingFlags
+   [Neo.SmartContract CachedScriptTable StateMachine ApplicationEngine
+    TriggerType]
+   [Neo.Core Blockchain Block
+    AccountState ValidatorState AssetState ContractState
+    StorageKey StorageItem]
    [Neo.Implementations.Blockchains.LevelDB DB LevelDBBlockchain]
    [Neo.Network LocalNode]))
 
@@ -143,3 +150,20 @@
      (Blockchain/RegisterBlockchain bc)
      (.Start thread)
      bc)))
+
+(defn monitored-run [script]
+  (let [b Blockchain/Default
+        accounts (.CreateCache b (type-args UInt160 AccountState))
+        validators (.CreateCache b (type-args ECPoint ValidatorState))
+        assets (.CreateCache b (type-args UInt256 AssetState))
+        contracts (.CreateCache b (type-args UInt160 ContractState))
+        storages (.CreateCache b (type-args StorageKey StorageItem))
+        script-table (CachedScriptTable. contracts)
+        service (StateMachine. accounts validators assets contracts storages)
+        engine (ApplicationEngine. TriggerType/Application nil script-table service Fixed8/Zero true)]
+    (doto engine
+      (.LoadScript script false)
+      .Execute)
+    (let [created-contracts (get-private-field service "contracts_created")]
+      {:engine engine
+       :created-contracts created-contracts})))

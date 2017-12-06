@@ -118,25 +118,6 @@
       VerificationContract/CreateSignatureContract
       (.Address)))
 
-(defn claim-gas-tx [wallet]
-  (let [unclaimed-coins (.GetUnclaimedCoins wallet)]
-    (when (empty? unclaimed-coins)
-      (throw (Exception. "No claimable gas")))
-    (let [claims (map #(.Reference %) unclaimed-coins)
-          asset-id (.Hash Blockchain/UtilityToken)
-          output (doto (TransactionOutput.)
-                   (#(set! (.AssetId %) asset-id))
-                   (#(set! (.Value %) (. Blockchain CalculateBonus claims false)))
-                   (#(set! (.ScriptHash %) (.GetChangeAddress wallet))))
-          tx (doto (ClaimTransaction.)
-               (#(set! (.Claims %) (into-array claims)))
-               (#(set! (.Attributes %) (make-array
-                                        TransactionAttribute 0)))
-               (#(set! (.Inputs %) (make-array CoinReference 0)))
-               (#(set! (.Outputs %) (into-array [output]))))
-          ctx (ContractParametersContext. tx)]
-      ctx)))
-
 (defn get-keys
   "Get clojure map of info about all the keys in wallet"
   [wallet]
@@ -151,3 +132,36 @@
                :address address}))]
     (->> wallet .GetKeys vec (map addr))))
 
+(defn claim-gas-tx
+  "Creates a transaction that claims GAS for wallet.
+  If `coins` is supplied should be a vec of `Coin` objects that are
+  used in the claim. If absent all unclaimed coins in the wallet are
+  used."
+  ([wallet] (claim-gas-tx wallet (vec (.GetUnclaimedCoins wallet))))
+  ([wallet coins]
+   (let [;; change-address (.GetChangeAddress wallet)
+         change-address (-> wallet get-keys first :address Wallet/ToScriptHash)]
+     (when (empty? coins)
+       (throw (Exception. "No claimable gas")))
+     (let [claims (map #(.Reference %) coins)
+           output (doto (TransactionOutput.)
+                    (#(set! (.AssetId %) (:gas blockchain/asset-ids)))
+                    (#(set! (.Value %) (. Blockchain CalculateBonus claims false)))
+                    (#(set! (.ScriptHash %) change-address)))
+           tx (doto (ClaimTransaction.)
+                (#(set! (.Claims %) (into-array claims)))
+                (#(set! (.Attributes %) (make-array
+                                         TransactionAttribute 0)))
+                (#(set! (.Inputs %) (make-array CoinReference 0)))
+                (#(set! (.Outputs %) (into-array [output]))))
+           ctx (ContractParametersContext. tx)]
+       ctx))))
+
+(defn claim-gas-for-address-tx
+  "Creates a transaction that claims GAS for an `address` in `wallet`.
+  The `address` should be a string. Only coins originating from this
+  address are included in the claim."
+  [wallet address]
+  (let [coins (->> wallet .GetUnclaimedCoins vec
+                   (filter #(= (.Address %) address)))]
+    (claim-gas-tx wallet coins)))
