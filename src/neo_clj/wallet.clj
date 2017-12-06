@@ -98,7 +98,7 @@
     {:tx tx
      :ctx ctx})))
 
-(defn sign-context
+(defn sign
   "Sign a context using the necessary keys from wallet. Returns
   boolean wether all scripthashes could be signed."
   [wallet ctx]

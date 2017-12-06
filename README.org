@@ -98,9 +98,9 @@ Starting extended RPC server on port 10336
 The RPC server exposes the same [[https://github.com/neo-project/neo/wiki/API-Reference][methods]] as in the neo core server. In
 addition the following endpoints are available in =neo-clj=:
 
-| command   | parameters       | description                      |
-|-----------+------------------+----------------------------------|
-| getassets |                  | list all registered assets       |
-| getkeys   |                  | get all keys in rpc wallet       |
-| makekeys  | <num> (optional) | add <num> new keys in rpc wallet |
-|           |                  |                                  |
+| command   | parameters           | description                                                             |
+|-----------+----------------------+-------------------------------------------------------------------------|
+| getassets |                      | list all registered assets                                              |
+| getkeys   |                      | get all keys in rpc wallet                                              |
+| makekeys  | <num> (optional)     | add <num> new keys in rpc wallet                                        |
+| claimgas  | <address> (optional) | claim gas for rpc wallet. if address is omitted, all addresses are used |

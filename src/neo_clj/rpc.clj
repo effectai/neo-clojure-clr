@@ -17,6 +17,20 @@
 
 (def state (atom {:wallet nil}))
 
+(defn- process-gas-claim [params]
+  (let [wallet (:wallet @state)
+        claim-ctx
+        (try (if (empty? params)
+               (wallet/claim-gas-tx (:wallet @state))
+               (wallet/claim-gas-tx (:wallet @state) (first params)))
+             (catch Exception e nil))]
+    (if (nil? claim-ctx)
+      "no claimable gas"
+      (do
+        (wallet/sign wallet claim-ctx)
+        (blockchain/relay claim-ctx)
+        "success"))))
+
 (defn- process-message [settings method params]
   (if (and (not Blockchain/Default) (method-needs-blockchain? method))
     {:error "No blockchain loaded"}
@@ -27,6 +41,7 @@
       "makekeys" (let [num (if (empty? params) 1 (first params))]
                    (dorun (dotimes [_ num] (.CreateKey (:wallet @state))))
                    "success")
+      "claimgas" (process-gas-claim params)
       nil)))
 
 (defn create-server

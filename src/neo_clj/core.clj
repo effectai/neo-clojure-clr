@@ -36,7 +36,7 @@
     (while (empty? (-> wallets first .GetCoins)) (Thread/Sleep 1000))    ; wait for rebuild...
     (let [tx (wallet/make-transaction
               (first wallets) to-address "100000000")
-          signs (dorun (map #(wallet/sign-context % (:ctx tx)) wallets))]
+          signs (dorun (map #(wallet/sign % (:ctx tx)) wallets))]
       (if (not (.Completed (:ctx tx)))
         (throw (Exception. "Failed to sign the transaction"))
         {:tx (:tx tx)
