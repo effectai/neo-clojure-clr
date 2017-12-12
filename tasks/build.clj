@@ -1,9 +1,5 @@
-(assembly-load "neo_clj.implementations.ExtendedLevelDBBlockchain")
-(assembly-load "neo_clj.implementations.ExtendedStateMachine")
-(ns tasks
+(ns build
   (:require
-   [neo-clj.rpc :as rpc]
-   [neo-clj.blockchain :as blockchain]
    [nostrand.repl :as repl])
   (:import System.IO.Directory))
 
@@ -23,12 +19,9 @@
     (compile 'neo-clj.crypto)
     (compile 'neo-clj.core)))
 
-(defn repl []
-  (repl/repl 11217))
-
-(defn rpc []
-  (let [port 10336
-        b (blockchain/create)
-        server (rpc/create-server {:port port})]
-    (rpc/start-server server))
-  (repl/repl 11217))
+(defn aot []
+  (ensure-build-dir!)
+  (binding [*compile-path* build-dir]
+    (compile 'neo-clj.implementations))
+  (assembly-load "neo_clj.implementations.ExtendedLevelDBBlockchain")
+  (assembly-load "neo_clj.implementations.ExtendedStateMachine"))
