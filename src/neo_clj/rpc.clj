@@ -2,6 +2,7 @@
   (:require
    [neo-clj.blockchain :as blockchain]
    [neo-clj.wallet :as wallet]
+   [neo-clj.core :refer [claim-initial-neo-tx]]
    [clojure.data.json :as json]
    [clojure.pprint :refer [pprint]]
    [clojure.reflect :refer [reflect]])
@@ -41,6 +42,12 @@
       "makekeys" (let [num (if (empty? params) 1 (first params))]
                    (dorun (dotimes [_ num] (.CreateKey (:wallet @state))))
                    "success")
+      "claiminitialneo" (do (-> (:wallet @state)
+                                wallet/get-keys
+                                first :address
+                                claim-initial-neo-tx
+                                :ctx blockchain/relay)
+                            "success")
       "claimgas" (process-gas-claim params)
       nil)))
 
