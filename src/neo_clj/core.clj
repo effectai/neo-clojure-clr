@@ -26,9 +26,8 @@
 
 (defn claim-initial-neo-tx
   "Create a signed raw transaction that claims the NEO from genesis block"
-  [address]
-  (let [to-address (wallet/pub-key-to-address address)
-        wallets (map-indexed
+  [to-address]
+  (let [wallets (map-indexed
                  #(let [wal (wallet/create (str "wal" %1) "test")]
                     (.Import wal %2) wal) wallet/wifs)]
     (dorun (map #(wallet/add-multi-sig-contract % public-keys) wallets)) ; add the multi-sig tx
