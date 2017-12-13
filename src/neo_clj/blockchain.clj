@@ -4,12 +4,14 @@
    [clojure.walk :refer [keywordize-keys]]
    [neo-clj.util :as util]
    [neo-clj.implementations :refer [get-private-field]]
-   [clojure.data.json :as json])
+   [clojure.data.json :as json]
+   [clojure.pprint :refer [pprint]])
   (:import
    System.Text.Encoding
    System.Net.WebRequest
    System.Threading.Thread
    Neo.VM.VMState
+   System.Environment
    [System.IO BinaryReader MemoryStream File StreamReader]
    [Neo Helper UInt256 UInt160 Fixed8]
    [Neo.Cryptography.ECC ECCurve ECPoint]
@@ -25,7 +27,8 @@
 (def chain-path "./Chain")
 
 ;; List of RPC servers used for syncing
-(def rpc-list ["http://localhost:10332"])
+(def rpc-list [(let [server (Environment/GetEnvironmentVariable "RPC_SERVER")]
+                 (if server server "http://localhost:10332"))])
 
 (def utility-token Blockchain/UtilityToken)
 

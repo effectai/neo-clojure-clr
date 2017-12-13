@@ -57,6 +57,9 @@ COPY . .
 # we cant change the load path of protocol.json in NEO, so copy over for now
 RUN cp protocol.json /opt/nos/bin/Release
 
+# do AOT compilation
+RUN nos build/aot
+
 ENTRYPOINT ["nos"]
 
 CMD ["tasks/repl"]
