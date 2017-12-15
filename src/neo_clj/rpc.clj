@@ -10,6 +10,7 @@
    Neo.Network.RPC.RpcServer
    Neo.Network.LocalNode
    Neo.Core.Blockchain
+   Neo.UInt256
    [Neo.IO.Json JArray JObject]))
 
 (def default-settings {:port 10332 :protocol "http"})
@@ -48,6 +49,16 @@
                                 claim-initial-neo-tx
                                 :ctx blockchain/relay)
                             "success")
+      "maketransaction" (do
+                          (->> (wallet/make-transaction
+                                 (:wallet @state)
+                                 (first params)                      ; to-address
+                                 (second params)                     ; amount
+                                 (UInt256/Parse (nth params 2)))     ; asset-id
+                                 :ctx
+                                 (wallet/sign (:wallet @state))
+                                 (blockchain/relay))
+                          "success")
       "claimgas" (process-gas-claim params)
       nil)))
 

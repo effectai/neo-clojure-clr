@@ -102,16 +102,16 @@
   "Sign a context using the necessary keys from wallet. Returns
   boolean wether all scripthashes could be signed."
   [wallet ctx]
-  (let [result
-        (map
-         (fn [script-hash]
-           (when-let [contract (.GetContract wallet script-hash)]
-             (when-let [key (.GetKeyByScriptHash wallet script-hash)]
-               (let [message (->> (.Verifiable ctx) (. Neo.Core.Helper GetHashData) crypto/hash256)
-                     signature (crypto/sign  message key)]
-                 (.AddSignature ctx contract (.PublicKey key) signature)))))
-         (.ScriptHashes ctx))]
-    (every? identity result)))
+  (doall
+   (map
+    (fn [script-hash]
+      (when-let [contract (.GetContract wallet script-hash)]
+        (when-let [key (.GetKeyByScriptHash wallet script-hash)]
+          (let [message (->> (.Verifiable ctx) (. Neo.Core.Helper GetHashData) crypto/hash256)
+                signature (crypto/sign  message key)]
+            (.AddSignature ctx contract (.PublicKey key) signature)))))
+   (.ScriptHashes ctx)))
+  ctx)
 
 (defn pub-key-to-address [pub-hash]
   (-> pub-hash pub-hash-to-ecpoint
