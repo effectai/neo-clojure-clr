@@ -27,8 +27,7 @@
 (def chain-path "./Chain")
 
 ;; List of RPC servers used for syncing
-(def rpc-list [(let [server (Environment/GetEnvironmentVariable "RPC_SERVER")]
-                 (if server server "http://localhost:10332"))])
+(def rpc-list [(util/get-env "RPC_SERVER" "http://localhost:10332")])
 
 (def utility-token Blockchain/UtilityToken)
 
@@ -115,7 +114,7 @@
   "Sync blockchain using RPC calls"
   ([bc] (sync bc true))
   ([bc verbose]
-   (let [height (rpc-request "getblockcount")]
+   (let [height (int (rpc-request "getblockcount"))]
      (loop [i (int (.Height bc))]
        (when (< i height)
          (when verbose (println (str "load block " i " of " height)))

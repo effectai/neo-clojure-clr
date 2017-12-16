@@ -43,7 +43,7 @@
 
 (defn deploy-contract-tx
   [wallet {:keys [file params return needs-storage version author email description]}]
-  (let [script (File/ReadAllBytes file)
+  (let [script (Helper/HexToBytes file)
         sb (ScriptBuilder.)]
     (doto sb
       (.EmitPush (str description))
@@ -59,13 +59,15 @@
     (let [tx (InvocationTransaction.)]
       (set! (.Version tx) 1)
       (set! (.Script tx) (.ToArray sb))
-      (let [engine (ApplicationEngine/Run (.Script tx) tx)]
-        (set! (.Gas tx) (InvocationTransaction/GetGas (.GasConsumed engine)))
+      (let [engine (ApplicationEngine/Run (.Script tx) tx)
+            gas-cost (InvocationTransaction/GetGas (.GasConsumed engine))]
+        (set! (.Gas tx) gas-cost)
         (let [ctx (-> (.MakeTransaction wallet tx nil Fixed8/Zero)
                       (ContractParametersContext.))]
           {:tx tx
            :script (.ToArray sb)
            :ctx ctx
+           :gas-cost gas-cost
            :script-hash (Neo.Core.Helper/ToScriptHash script)})))))
 
 (defn invoke-contract-tx [wallet script-hash]

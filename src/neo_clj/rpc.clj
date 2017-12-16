@@ -2,10 +2,12 @@
   (:require
    [neo-clj.blockchain :as blockchain]
    [neo-clj.wallet :as wallet]
-   [neo-clj.core :refer [claim-initial-neo-tx]]
+   [neo-clj.core :refer [claim-initial-neo-tx deploy-contract-tx]]
+   [neo-clj.util :as util]
    [clojure.data.json :as json]
    [clojure.pprint :refer [pprint]]
-   [clojure.reflect :refer [reflect]])
+   [clojure.reflect :refer [reflect]]
+   [clojure.string :as str])
   (:import
    Neo.Network.RPC.RpcServer
    Neo.Network.LocalNode
@@ -18,6 +20,9 @@
 (def method-needs-blockchain? {"getblock" true "getassets" true})
 
 (def state (atom {:wallet nil}))
+
+(def data-dir (let [d (util/get-env "DATA_DIR" "./")]
+                (if (str/ends-with? d "/") d (str d "/"))))
 
 (defn- process-gas-claim [params]
   (let [wallet (:wallet @state)
@@ -49,17 +54,26 @@
                                 claim-initial-neo-tx
                                 :ctx blockchain/relay)
                             "success")
-      "maketransaction" (do
-                          (->> (wallet/make-transaction
-                                 (:wallet @state)
-                                 (first params)                      ; to-address
-                                 (second params)                     ; amount
-                                 (UInt256/Parse (nth params 2)))     ; asset-id
+      "maketransaction" (let [[to-address amount asset-id] params]
+                          (->> (wallet/make-transaction (:wallet @state)
+                                 to-address amount (UInt256/Parse asset-id))
                                  :ctx
                                  (wallet/sign (:wallet @state))
                                  (blockchain/relay))
                           "success")
       "claimgas" (process-gas-claim params)
+      "deploycontract" (let [contract
+                             (zipmap [:name :version :author :email :description
+                                      :needs-storage :params :return :script] params)
+                             {:keys [script-hash ctx gas-cost]}
+                             (deploy-contract-tx (:wallet @state) contract)]
+                         (if (nil? (.Verifiable ctx))
+                           {:error "insufficient funds" :cost (str gas-cost)}
+                           (let [success (->> (wallet/sign (:wallet @state) ctx)
+                                              (blockchain/relay))]
+                             (if (not success)
+                               {:error "failed to relay transaction"}
+                               {:success "true"}))))
       nil)))
 
 (defn create-server
@@ -83,7 +97,8 @@
   [{:keys [server protocol port]}]
   (println "Starting extended RPC server on port" port)
 
-  (let [w (wallet/open-or-create "wallet.db3" "duplo")]
+  (let [w (wallet/open-or-create (str data-dir "wallet.db3") "duplo")
+        b (blockchain/create (str data-dir "Chain"))]
     (swap! state #(assoc-in % [:wallet] w)))
 
   (.Start server (into-array [(str protocol "://*:" port)])))

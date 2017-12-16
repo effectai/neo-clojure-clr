@@ -28,6 +28,5 @@
 
 (defn rpc []
   (let [port 10336
-        b (blockchain/create)
         server (rpc/create-server {:port port})]
     (rpc/start-server server)))

@@ -1,5 +1,5 @@
 (ns neo-clj.util
-  (:import System.Convert))
+  (:import [System Convert Environment]))
 
 (defn hex-str-to-byte-arr
   "Utility function to convert a hex-decimal string to a byte array"
@@ -14,3 +14,7 @@
                             (Convert/ToByte (.Substring hex i 2) 16))
                  arr))
         arr))))
+
+(defn get-env [env default]
+  (let [value (Environment/GetEnvironmentVariable env)]
+        (if value value default)))

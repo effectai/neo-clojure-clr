@@ -1,7 +1,8 @@
 (ns neo-clj.wallet
   (:require
    [neo-clj.blockchain :as blockchain]
-   [neo-clj.crypto :as crypto])
+   [neo-clj.crypto :as crypto]
+   [clojure.string :as str])
   (:import
    [System.IO File Directory]
    [Neo Fixed8 Helper]
@@ -26,10 +27,11 @@
   (UserWallet/Open path passw))
 
 (defn open-or-create
-  "Open a wallet relative to the current directory, or create it if it
-  doesn't exist"
+  "Open a wallet or create it if it doesn't exist"
   [path passw]
-  (let [path (str (Directory/GetCurrentDirectory) "/" path)]
+  (let [path (if (str/starts-with? path "/")
+               path
+               (str (Directory/GetCurrentDirectory) "/" path))]
     (if (File/Exists path)
       (open path passw)
       (create path passw))))
