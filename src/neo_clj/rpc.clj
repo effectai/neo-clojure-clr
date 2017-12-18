@@ -44,6 +44,7 @@
     (case method
       "getversion" {:port (:port settings) :useragent "NEO-CLJ:0.0.0"}
       "getassets" (:assets @blockchain/state)
+      "getcontracts" (vec (map #(dissoc % "storage") (:contracts @blockchain/state)))
       "getkeys" (wallet/get-keys (:wallet @state))
       "makekeys" (let [num (if (empty? params) 1 (first params))]
                    (dorun (dotimes [_ num] (.CreateKey (:wallet @state))))
@@ -64,7 +65,7 @@
       "claimgas" (process-gas-claim params)
       "deploycontract" (let [contract
                              (zipmap [:name :version :author :email :description
-                                      :needs-storage :params :return :script] params)
+                                      :needs-storage :params :return :file] params)
                              {:keys [script-hash ctx gas-cost]}
                              (deploy-contract-tx (:wallet @state) contract)]
                          (if (nil? (.Verifiable ctx))

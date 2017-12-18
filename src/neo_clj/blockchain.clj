@@ -10,8 +10,9 @@
    System.Text.Encoding
    System.Net.WebRequest
    System.Threading.Thread
-   Neo.VM.VMState
    System.Environment
+   neo_clj.implementations.ExtendedStateMachine
+   [Neo.VM VMState OpCode IScriptTable]
    [System.IO BinaryReader MemoryStream File StreamReader]
    [Neo Helper UInt256 UInt160 Fixed8]
    [Neo.Cryptography.ECC ECCurve ECPoint]
@@ -54,13 +55,32 @@
    (gen-delegate |System.EventHandler`1[[Neo.Core.Block]]|
                  [sender block] (callback-fn sender (obj->clj block)))))
 
-(defn- update-state [{transactions :tx :as block}]
+(defn- gather-contracts []
+  (let [contract-cache (.CreateCache Blockchain/Default (type-args UInt160 ContractState))]
+    (try
+      (->> contract-cache
+           (#(.Find % (byte-array 0)))
+           vec
+           (map #(.Value %))
+           (map #(.ToJson %))
+           (map str)
+           (map json/read-str)))))
+
+(defn- update-state
+  [{transactions :tx :as block}]
   (let [assets
         (->> transactions
              (filter #(= (:type %) (:register tx-type)))     ; all register txs
              (map #(assoc-in % [:asset :txid] (:txid %)))    ; enhance :asset with the :txid
-             (map :asset))]                                  ; get list of assets
-    (swap! state (fn [s] (update-in s [:assets] #(concat % assets))))))
+             (map :asset))                                   ; get list of assets
+        invocations
+        (filter #(= (:type %) (:invocation tx-type)) transactions)
+        contracts (if (empty? invocations)
+                    (:contracts @state)
+                    (gather-contracts))]
+    (swap! state (fn [s] (-> s
+                             (assoc-in [:contracts] contracts)
+                             (update-in [:assets] #(concat % assets)))))))
 
 (defn get-block
   "Get a block and transform data into a clojure map. Original block
@@ -76,7 +96,11 @@
         reader (BinaryReader. (MemoryStream. data))
         block (Block.)]
     (.Deserialize block reader)
-    (obj->clj block)))
+    (try
+      (obj->clj block)
+      (catch Exception e
+        (println "Error: failed loading block " (.Message e))
+        nil))))
 
 (defn context-to-raw-tx
   "Create a transaction string that is accepted by RPC 'sendrawtransaction'"
@@ -118,7 +142,10 @@
      (loop [i (int (.Height bc))]
        (when (< i height)
          (when verbose (println (str "load block " i " of " height)))
-         (->> (rpc-request "getblock" [i]) load-block :object (.AddBlock bc))
+         (try
+           (let [block (rpc-request "getblock" [i])]
+             (->> block load-block :object (.AddBlock bc)))
+           (catch Exception e (println "Error: failed loading block " (.Message e))))
          (recur (inc i)))))))
 
 (defn sync-thread

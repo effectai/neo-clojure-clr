@@ -42,7 +42,7 @@
          :ctx (:ctx tx)}))))
 
 (defn deploy-contract-tx
-  [wallet {:keys [file params return needs-storage version author email description]}]
+  [wallet {:keys [file params return needs-storage name version author email description]}]
   (let [script (Helper/HexToBytes file)
         sb (ScriptBuilder.)]
     (doto sb

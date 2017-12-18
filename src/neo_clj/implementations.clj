@@ -3,7 +3,7 @@
    System.Reflection.BindingFlags
    [Neo UInt160]
    [Neo.Core Blockchain Block]
-   Neo.SmartContract.StateMachine))
+   [Neo.SmartContract StateMachine]))
 
 (defn get-private-field
   "Get a private field from an object using reflection"
@@ -35,18 +35,17 @@
                  |Neo.IO.Caching.DataCache`2[Neo.UInt160,Neo.Core.ContractState]|
                  |Neo.IO.Caching.DataCache`2[Neo.Core.StorageKey,Neo.Core.StorageItem]|]}
  :post-init post-init
- :methods [[GetCreatedContracts []
-            |System.Collections.Generic.Dictionary`2[Neo.UInt160,Neo.UInt160]|]])
+ :methods [[ContractCreate [Neo.VM.ExecutionEngine] Boolean]])
 
 (defn -SM-init [accounts validators assets contracts storages]
-  (println "pre-init")
   [[accounts validators assets contracts storages] nil])
 
 (defn -SM-post-init [this accounts validators assets contracts storages]
-  (println "post-init")
-  )
+  (.Register this "Neo.Contract.Create"
+             (sys-func [Neo.VM.ExecutionEngine Boolean] [e] (.ContractCreate this e))))
 
-(defn -SM-GetCreatedContracts [this]
-  (get-private-field this "contracts_created"))
+(defn -SM-ContractCreate [this engine]
+  (let [script (.. engine EvaluationStack Pop)]
+    ))
 
 
